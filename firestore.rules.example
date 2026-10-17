@@ -1,8 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 店舗コードを知っている匿名認証済み担当者が共有します。
-    // 店舗コードは推測困難な値にし、レジ担当者だけに配布してください。
+    // 公開レジの匿名認証利用者が共有します。既存アプリ領域の権限は変更しません。
     match /registerShops/{shop}/products/{product} {
       allow read, delete: if request.auth != null;
       allow create, update: if request.auth != null && request.resource.data.name is string
@@ -13,8 +12,33 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create: if request.auth != null && request.resource.data.total is int
         && request.resource.data.total >= 0 && request.resource.data.items is list
-        && request.resource.data.operator is string;
-      allow update, delete: if false;
+        && request.resource.data.operator is string
+        && !request.resource.data.keys().hasAny(['cancelledAt','cancelledBy','cancelledByUid','cancelReason','servedAt','servedBy','servedByUid','replacementId','replacementNumber','replacementDay'])
+        && (!('replacesId' in request.resource.data)
+          || (getAfter(/databases/$(database)/documents/registerShops/$(shop)/orders/$(request.resource.data.replacesId)).data.replacementId == order
+            && getAfter(/databases/$(database)/documents/registerShops/$(shop)/orders/$(request.resource.data.replacesId)).data.number == request.resource.data.replacesNumber
+            && getAfter(/databases/$(database)/documents/registerShops/$(shop)/orders/$(request.resource.data.replacesId)).data.day == request.resource.data.replacesDay));
+      function active() { return resource.data.get('cancelledAt', null) == null; }
+      function actorValid(field) {
+        return request.resource.data[field] is string && request.resource.data[field].size() > 0
+          && request.resource.data[field].size() <= 40;
+      }
+      allow update: if request.auth != null && active() && (
+        (resource.data.get('servedAt', null) == null
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['servedAt','servedBy','servedByUid'])
+          && request.resource.data.servedAt == request.time
+          && actorValid('servedBy') && request.resource.data.servedByUid == request.auth.uid)
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['cancelledAt','cancelledBy','cancelledByUid','cancelReason','replacementId','replacementNumber','replacementDay'])
+          && request.resource.data.cancelledAt == request.time && actorValid('cancelledBy')
+          && request.resource.data.cancelledByUid == request.auth.uid
+          && request.resource.data.cancelReason is string
+          && request.resource.data.cancelReason.size() > 0 && request.resource.data.cancelReason.size() <= 200
+          && (!('replacementId' in request.resource.data)
+            || (getAfter(/databases/$(database)/documents/registerShops/$(shop)/orders/$(request.resource.data.replacementId)).data.replacesId == order
+              && getAfter(/databases/$(database)/documents/registerShops/$(shop)/orders/$(request.resource.data.replacementId)).data.number == request.resource.data.replacementNumber
+              && getAfter(/databases/$(database)/documents/registerShops/$(shop)/orders/$(request.resource.data.replacementId)).data.day == request.resource.data.replacementDay)))
+      );
+      allow delete: if false;
     }
     match /registerShops/{shop}/counters/{day} {
       allow read: if request.auth != null;
