@@ -1,0 +1,2 @@
+export const defaultConfig = {"apiKey": "AIzaSyAWtITnn5uMOPBgOY0Bd7Rt5IN1ry8XoJI", "authDomain": "urakata-app.firebaseapp.com", "projectId": "urakata-app", "storageBucket": "urakata-app.firebasestorage.app", "messagingSenderId": "407777765696", "appId": "1:407777765696:web:045c2d94729022b4eab2a5", "measurementId": "G-9ZRMD26XNJ"};
+export const defaultShop = "register-8b4a9c03-22e4-4b31-9a67-1b0d9d66c712";

@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 店舗コードを知っている匿名認証済み担当者が共有します。
+    // 店舗コードは推測困難な値にし、レジ担当者だけに配布してください。
+    match /registerShops/{shop}/products/{product} {
+      allow read, delete: if request.auth != null;
+      allow create, update: if request.auth != null && request.resource.data.name is string
+        && request.resource.data.price is int && request.resource.data.price >= 0
+        && request.resource.data.price <= 10000000;
+    }
+    match /registerShops/{shop}/orders/{order} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.total is int
+        && request.resource.data.total >= 0 && request.resource.data.items is list
+        && request.resource.data.operator is string;
+      allow update, delete: if false;
+    }
+    match /registerShops/{shop}/counters/{day} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.value == 100;
+      allow update: if request.auth != null && request.resource.data.value == resource.data.value + 1;
+    }
+  }
+}
